@@ -13,7 +13,7 @@ class Atm
     event_tracker.show('Type your PIN')
     pin = gets.chomp
     catch(:authentication_error) do
-        authenticate(pin)
+      authenticate(pin)
       catch(:action_failure) do
         proceed_action
       end
@@ -25,18 +25,9 @@ class Atm
 
   private
 
-  def set_current_card(card)
-    @current_card = card
-  end
-
-  def reset_current_card
-    @current_card = nil
-  end
-
   def authenticate(pin)
     check_card_status
     authenticate_pin(pin)
-    true
   end
 
   def proceed_action
@@ -50,8 +41,21 @@ class Atm
     end
   end
 
+  def check_card_status
+    return if current_card.enabled?
+    event_tracker.run(DisabledCardError)
+    throw(:authentication_error)
+  end
+
+  def authenticate_pin(pin)
+    return if current_card.account.validate_pin(pin)
+    current_card.lock
+    event_tracker.run(WrongPinError)
+    throw(:authentication_error)
+  end
+
   def display
-    event_tracker.show(card.account.show_balance)
+    event_tracker.show(current_card.account.show_balance)
   end
 
   def withdraw
@@ -65,36 +69,49 @@ class Atm
   def add
     event_tracker.show("Insert money")
     amount = gets.chomp.to_i
+    check_if_correct_funds(amount)
     event_tracker.save("amount inserted #{amount}")
     event_tracker.show(current_card.account.add(amount))
   end
 
   def check_if_sufficient_funds(amount)
-    if amount > cash
+    if amount <= 0
+      event_tracker.run(ISeeWhatYouDidThereError)
+      throw(:action_failure)
+    elsif amount > cash
       event_tracker.run(NoEnoughCashInAtmError)
       throw(:action_failure)
     elsif amount > current_card.account.balance
       event_tracker.run(NoEnoughCashInAccountError)
       throw(:action_failure)
-    else
-      true
     end
   end
 
-  def check_card_status
-    return true if current_card.enabled?
-    event_tracker.run(DisabledCardError)
-    throw(:authentication_error)
+  def check_if_correct_funds(amount)
+    if amount <= 0
+      event_tracker.run(ImpossibleSituationError)
+      throw(:action_failure)
+    end
   end
 
-  def authenticate_pin(pin)
-    if current_card.account.validate_pin(pin)
-      return true
-    else
-      current_card.lock
-      event_tracker.run(WrongPinError)
-      false
-    end
+  def set_current_card(card)
+    @current_card = card
+  end
+
+  def reset_current_card
+    @current_card = nil
+  end
+end
+
+class ImpossibleSituationError
+  def self.message
+    "It's impossible to put negative amount of cash into ATM\nTransaction aborted"
+  end
+end
+
+class ISeeWhatYouDidThereError
+  def self.message
+    "You tried to withdraw negative amount of money, you naughty persone\nTransaction aborted"
   end
 end
 
