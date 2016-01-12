@@ -13,7 +13,17 @@ class Account
     Random.new(pin).rand(10_000_000_000) == @pin_hash.rand(10_000_000_000)
   end
 
-  #add
-  #withdraw
-  #display_balance
+  def show_balance
+    "Your funds are #{balance}$"
+  end
+
+  def add(amount)
+    @balance += amount
+    "#{amount}$ added to your account"
+  end
+
+  def withdraw(amount)
+    @balance -= amount
+    "#{amount}$ taken from account"
+  end
 end
