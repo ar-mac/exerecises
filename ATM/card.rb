@@ -20,5 +20,4 @@ class Card
   def disabled?
     !enabled
   end
-
 end
