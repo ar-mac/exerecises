@@ -5,8 +5,8 @@ class BankEvent
     @logfile = []
   end
 
-  def new_transaction
-    @logfile.push []
+  def new_transaction(type = :civil)
+    @logfile.push ["---#{type} transaction---"]
   end
 
   def run(object)
@@ -21,5 +21,11 @@ class BankEvent
 
   def save(message)
     @logfile.last.push message
+  end
+
+  def show_logs
+    logfile.each do |transaction|
+      puts transaction
+    end
   end
 end

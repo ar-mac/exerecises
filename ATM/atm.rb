@@ -1,9 +1,11 @@
 class Atm
+  extend Forwardable
 
   attr_reader :cash, :current_card, :event_tracker
   alias_method :card_inserted, :transaction
   alias_method :key_inserted, :authority_transaction
-  
+  def_delegators :@event_tracker, :show_logs
+
   def initialize(cash, security_num)
     @cash = cash
     @event_tracker = BankEvent.new
@@ -28,11 +30,15 @@ class Atm
   end
   
   def authority_transaction(key)
-    event_tracker.new_transaction
+    event_tracker.new_transaction(:authority)
     catch(:authentication_error) do
       authorize_key(key)
-      #fill/drain/show_log methods
+      catch(:action_failure) do
+        proceed_authority_action
+      end
     end
+    event_tracker.show('Please take out your key')
+    gets
   end
   
   private
@@ -52,14 +58,46 @@ class Atm
   end
 
   def proceed_action
-    event_tracker.show("PIN correct.\n-d- To display your balance\n-w- To withdraw money\n-i- To insert money")
+    event_tracker.show("-d- To display your balance\n-w- To withdraw money\n-i- To insert money")
     action = gets
     event_tracker.save("action chosed #{action}")
     case action
-      when /(d|display)/ then display
-      when /(w|withdraw)/ then withdraw
-      when /(i|insert)/ then add
+      when /(d|display)/i then
+        display
+      when /(w|withdraw)/i then
+        withdraw
+      when /(i|insert)/i then
+        add
     end
+  end
+
+  def proceed_authority_action
+    event_tracker.show("-f- To fill cash\n-t- To take out cash\n-l- To show logs")
+    action.gets
+    event_tracker.save("action chosed #{action}")
+    case action
+      when /(f|fill)/i then
+        fill
+      when /(t|take)/i then
+        take_out
+      when /(l|log)/i then
+        show_logs
+    end
+  end
+
+  def fill
+    event_tracker.show("Fill ATM cash reserve.")
+    amount = gets.chomp.to_i
+    check_if_correct_funds(amount)
+    event_tracker.show(add_funds(amount))
+  end
+
+  def take_out
+    event_tracker.show("Take cash")
+    amount = gets.chomp.to_i
+    check_if_sufficient_funds(amount, :authority)
+    event_tracker.show(remove_funds(amount))
+    event_tracker.show(current_card.account.withdraw(amount))
   end
 
   def check_card_status
@@ -69,10 +107,13 @@ class Atm
   end
 
   def authenticate_pin(pin)
-    return if current_card.account.validate_pin(pin)
-    current_card.lock
-    event_tracker.run(WrongPinError)
-    throw(:authentication_error)
+    if current_card.account.validate_pin(pin)
+      event_tracker.show('PIN correct\nAccess granted.')
+    else
+      current_card.lock
+      event_tracker.run(WrongPinError)
+      throw(:authentication_error)
+    end
   end
 
   def display
@@ -85,7 +126,6 @@ class Atm
     event_tracker.save("amount chosen #{amount}")
     check_if_sufficient_funds(amount)
     event_tracker.show(remove_funds(amount))
-    event_tracker.show(current_card.account.withdraw(amount))
   end
 
   def add
@@ -96,14 +136,14 @@ class Atm
     event_tracker.show(current_card.account.add(amount))
   end
 
-  def check_if_sufficient_funds(amount)
+  def check_if_sufficient_funds(amount, operation_type = :civil)
     if amount <= 0
       event_tracker.run(ISeeWhatYouDidThereError)
       throw(:action_failure)
     elsif amount > cash
       event_tracker.run(NoEnoughCashInAtmError)
       throw(:action_failure)
-    elsif amount > current_card.account.balance
+    elsif operation_type == :civil && amount > current_card.account.balance
       event_tracker.run(NoEnoughCashInAccountError)
       throw(:action_failure)
     end
@@ -132,47 +172,5 @@ class Atm
 
   def reset_current_card
     @current_card = nil
-  end
-end
-
-class WrongKeyError
-  def self.message
-    "Inserted key is in unauthorized.\nTransaction aborted"
-  end
-end
-
-class ImpossibleSituationError
-  def self.message
-    "It's impossible to put negative amount of cash into ATM\nTransaction aborted"
-  end
-end
-
-class ISeeWhatYouDidThereError
-  def self.message
-    "You tried to withdraw negative amount of money, you naughty person.\nTransaction aborted"
-  end
-end
-
-class NoEnoughCashInAccountError
-  def self.message
-    "No sufficient funds on your account\nTransaction aborted"
-  end
-end
-
-class NoEnoughCashInAtmError
-  def self.message
-    "No sufficient funds in ATM\nTransaction aborted"
-  end
-end
-
-class DisabledCardError
-  def self.message
-    "Your card is disabled.\nTransaction aborted"
-  end
-end
-
-class WrongPinError
-  def self.message
-    "Wrong pin provided.\nYour card is locked.\nTransaction aborted"
   end
 end

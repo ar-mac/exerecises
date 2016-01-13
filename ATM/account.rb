@@ -6,6 +6,7 @@ class Account
   def initialize(owner, balance, pin)
     @owner = owner
     @balance = balance
+    @card = Card.new(owner, self)
     @pin_hash = Random.new(pin)
   end
 
