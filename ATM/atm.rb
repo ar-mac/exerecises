@@ -1,10 +1,14 @@
 class Atm
 
   attr_reader :cash, :current_card, :event_tracker
-  def initialize(cash)
+  alias_method :card_inserted, :transaction
+  alias_method :key_inserted, :authority_transaction
+  
+  def initialize(cash, security_num)
     @cash = cash
     @event_tracker = BankEvent.new
     @current_card = nil
+    @security_num = Random.new(security_num)
   end
 
   def transaction(card)
@@ -13,7 +17,7 @@ class Atm
     event_tracker.show('Type your PIN')
     pin = gets.chomp
     catch(:authentication_error) do
-      authenticate(pin)
+      authorize(pin)
       catch(:action_failure) do
         proceed_action
       end
@@ -22,17 +26,34 @@ class Atm
     gets
     reset_current_card
   end
-
+  
+  def authority_transaction(key)
+    event_tracker.new_transaction
+    catch(:authentication_error) do
+      authorize_key(key)
+      #fill/drain/show_log methods
+    end
+  end
+  
   private
+  
+  def authorize_key(key)
+    if key.security_num.rand(10_000_000_000) == @security_num.rand(10_000_000_000)
+      event_tracker.show('Key autenticated.\nAccess granted.')
+    else
+      event_tracker.run(WrongKeyError)
+      throw(:authentication_error)
+    end
+  end
 
-  def authenticate(pin)
+  def authorize(pin)
     check_card_status
     authenticate_pin(pin)
   end
 
   def proceed_action
     event_tracker.show("PIN correct.\n-d- To display your balance\n-w- To withdraw money\n-i- To insert money")
-    action = gets.chomp
+    action = gets
     event_tracker.save("action chosed #{action}")
     case action
       when /(d|display)/ then display
@@ -63,6 +84,7 @@ class Atm
     amount = gets.chomp.to_i
     event_tracker.save("amount chosen #{amount}")
     check_if_sufficient_funds(amount)
+    event_tracker.show(remove_funds(amount))
     event_tracker.show(current_card.account.withdraw(amount))
   end
 
@@ -70,7 +92,7 @@ class Atm
     event_tracker.show("Insert money")
     amount = gets.chomp.to_i
     check_if_correct_funds(amount)
-    event_tracker.save("amount inserted #{amount}")
+    event_tracker.show(add_funds(amount))
     event_tracker.show(current_card.account.add(amount))
   end
 
@@ -93,6 +115,16 @@ class Atm
       throw(:action_failure)
     end
   end
+  
+  def remove_funds(amount)
+    @cash -= amount
+    event_tracker.save("#{amount}$ taken. ATM now holds #{cash}$")
+  end
+  
+  def add_funds(amount)
+    @cash += amount
+    event_tracker.save("#{amount}$ added. ATM now holds #{cash}$")
+  end
 
   def set_current_card(card)
     @current_card = card
@@ -100,6 +132,12 @@ class Atm
 
   def reset_current_card
     @current_card = nil
+  end
+end
+
+class WrongKeyError
+  def self.message
+    "Inserted key is in unauthorized.\nTransaction aborted"
   end
 end
 
@@ -111,7 +149,7 @@ end
 
 class ISeeWhatYouDidThereError
   def self.message
-    "You tried to withdraw negative amount of money, you naughty persone\nTransaction aborted"
+    "You tried to withdraw negative amount of money, you naughty person.\nTransaction aborted"
   end
 end
 
