@@ -1,4 +1,4 @@
-Dir['lib/*.rb'].each { |file| require_relative file }
+Dir['lib/*.rb', 'ATM/lib/*.rb'].each { |file| require_relative file }
 require 'pry'
 
 secret = 42712945

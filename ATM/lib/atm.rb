@@ -1,4 +1,5 @@
 require 'forwardable'
+require 'digest'
 
 class Atm
   extend Forwardable
@@ -10,25 +11,26 @@ class Atm
     @cash = cash
     @event_tracker = BankEvent.new
     @current_card = nil
-    @security_num = Random.new(security_num)
+    @security_num = Digest::MD5.digest security_num.to_s
   end
 
   def transaction(card)
     set_current_card(card)
     event_tracker.new_transaction
-    event_tracker.show('Type your PIN')
-    pin = gets.chomp
     catch(:authentication_error) do
+      check_card_status
+      event_tracker.show('Type your PIN')
+      pin = STDIN.gets.chomp
       authorize(pin)
       catch(:action_failure) do
         proceed_action
       end
     end
     event_tracker.show('Please take out your card')
-    gets
+    STDIN.gets
     reset_current_card
   end
-  
+
   def authority_transaction(key)
     event_tracker.new_transaction(:authority)
     catch(:authentication_error) do
@@ -38,14 +40,14 @@ class Atm
       end
     end
     event_tracker.show('Please take out your key')
-    gets
+    STDIN.gets
   end
-  
+
   private
-  
+
   def authorize_key(key)
     if key.security_num.rand(10_000_000_000) == @security_num.rand(10_000_000_000)
-      event_tracker.show('Key autenticated.\nAccess granted.')
+      event_tracker.show("Key autenticated.\nAccess granted.")
     else
       event_tracker.run(WrongKeyError)
       throw(:authentication_error)
@@ -53,13 +55,12 @@ class Atm
   end
 
   def authorize(pin)
-    check_card_status
     authenticate_pin(pin)
   end
 
   def proceed_action
     event_tracker.show("-d- To display your balance\n-w- To withdraw money\n-i- To insert money")
-    action = gets
+    action = STDIN.gets
     event_tracker.save("action chosed #{action}")
     case action
       when /(d|display)/i then
@@ -73,7 +74,7 @@ class Atm
 
   def proceed_authority_action
     event_tracker.show("-f- To fill cash\n-t- To take out cash\n-l- To show logs")
-    action.gets
+    action = STDIN.gets
     event_tracker.save("action chosed #{action}")
     case action
       when /(f|fill)/i then
@@ -87,14 +88,14 @@ class Atm
 
   def fill
     event_tracker.show("Fill ATM cash reserve.")
-    amount = gets.chomp.to_i
+    amount = STDIN.gets.chomp.to_i
     check_if_correct_funds(amount)
     event_tracker.show(add_funds(amount))
   end
 
   def take_out
     event_tracker.show("Take cash")
-    amount = gets.chomp.to_i
+    amount = STDIN.gets.chomp.to_i
     check_if_sufficient_funds(amount, :authority)
     event_tracker.show(remove_funds(amount))
     event_tracker.show(current_card.account.withdraw(amount))
@@ -108,7 +109,7 @@ class Atm
 
   def authenticate_pin(pin)
     if current_card.account.validate_pin(pin)
-      event_tracker.show('PIN correct\nAccess granted.')
+      event_tracker.show("PIN correct\nAccess granted.")
     else
       current_card.lock
       event_tracker.run(WrongPinError)
@@ -122,7 +123,7 @@ class Atm
 
   def withdraw
     event_tracker.show("Type amount you would like to withdraw")
-    amount = gets.chomp.to_i
+    amount = STDIN.gets.chomp.to_i
     event_tracker.save("amount chosen #{amount}")
     check_if_sufficient_funds(amount)
     event_tracker.show(remove_funds(amount))
@@ -130,7 +131,7 @@ class Atm
 
   def add
     event_tracker.show("Insert money")
-    amount = gets.chomp.to_i
+    amount = STDIN.gets.chomp.to_i
     check_if_correct_funds(amount)
     event_tracker.show(add_funds(amount))
     event_tracker.show(current_card.account.add(amount))
@@ -152,6 +153,9 @@ class Atm
   def check_if_correct_funds(amount)
     if amount <= 0
       event_tracker.run(ImpossibleSituationError)
+      throw(:action_failure)
+    elsif amount < current_card.owner.cash
+      event_tracker.run(NotEnoughCashInPocketError)
       throw(:action_failure)
     end
   end

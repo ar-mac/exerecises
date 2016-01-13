@@ -22,6 +22,12 @@ class NoEnoughCashInAccountError
   end
 end
 
+class NoEnoughCashInPocketError
+  def self.message
+    "No sufficient funds in your pocket\nTransaction aborted"
+  end
+end
+
 class NoEnoughCashInAtmError
   def self.message
     "No sufficient funds in ATM\nTransaction aborted"

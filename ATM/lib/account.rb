@@ -1,3 +1,5 @@
+require 'digest'
+
 class Account
 
   attr_reader :owner, :card
@@ -7,11 +9,11 @@ class Account
     @owner = owner
     @balance = balance
     @card = Card.new(owner, self)
-    @pin_hash = Random.new(pin)
+    @pin_hash = Digest::MD5.digest pin.to_s
   end
 
   def validate_pin(pin)
-    Random.new(pin).rand(10_000_000_000) == @pin_hash.rand(10_000_000_000)
+    Digest::MD5.digest(pin.to_s) == @pin_hash
   end
 
   def show_balance
