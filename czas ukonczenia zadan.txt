@@ -1,0 +1,3 @@
+ATM - 4h 50min - taki czas wynika z dokładnego podejścia do zadania, wykorzystywanie dobrych praktyk itp.
+person with tasks - 20min
+prime_palindrome - 20min
