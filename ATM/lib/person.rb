@@ -1,7 +1,7 @@
 class Person
 
   attr_reader :name
-  attr_accessor :card, :account, :security_key
+  attr_accessor :card, :account, :security_key, :cash
 
   def initialize(name, cash)
     @name = name
@@ -12,6 +12,8 @@ class Person
   end
 
   def create_account_with(amount, pin)
+    return unless has_enough_cash?(amount)
+    @cash -= amount
     @account = Account.new(self, amount, pin)
     @card = account.card
   end
@@ -26,5 +28,11 @@ class Person
 
   def use_atm_as_authority(atm)
     atm.authority_transaction(security_key)
+  end
+
+  private
+
+  def has_enough_cash?(amount)
+    amount <= cash
   end
 end

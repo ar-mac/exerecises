@@ -1,6 +1,6 @@
 class Account
 
-  attr_reader :owner
+  attr_reader :owner, :card
   attr_accessor :balance
 
   def initialize(owner, balance, pin)

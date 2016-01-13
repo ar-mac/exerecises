@@ -1,9 +1,9 @@
+require 'forwardable'
+
 class Atm
   extend Forwardable
 
   attr_reader :cash, :current_card, :event_tracker
-  alias_method :card_inserted, :transaction
-  alias_method :key_inserted, :authority_transaction
   def_delegators :@event_tracker, :show_logs
 
   def initialize(cash, security_num)
@@ -158,10 +158,12 @@ class Atm
   
   def remove_funds(amount)
     @cash -= amount
+    current_card.owner.cash += amount
     event_tracker.save("#{amount}$ taken. ATM now holds #{cash}$")
   end
-  
+
   def add_funds(amount)
+    current_card.owner.cash -= amount
     @cash += amount
     event_tracker.save("#{amount}$ added. ATM now holds #{cash}$")
   end
