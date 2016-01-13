@@ -16,13 +16,13 @@ class ISeeWhatYouDidThereError
   end
 end
 
-class NoEnoughCashInAccountError
+class NotEnoughCashInAccountError
   def self.message
     "No sufficient funds on your account\nTransaction aborted"
   end
 end
 
-class NoEnoughCashInPocketError
+class NotEnoughCashInPocketError
   def self.message
     "No sufficient funds in your pocket\nTransaction aborted"
   end

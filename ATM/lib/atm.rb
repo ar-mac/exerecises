@@ -20,8 +20,8 @@ class Atm
     catch(:authentication_error) do
       check_card_status
       event_tracker.show('Type your PIN')
-      pin = STDIN.gets.chomp
-      authorize(pin)
+      pin_digest = Digest::MD5.digest(STDIN.gets.chomp)
+      authenticate_pin(pin_digest)
       catch(:action_failure) do
         proceed_action
       end
@@ -52,10 +52,6 @@ class Atm
       event_tracker.run(WrongKeyError)
       throw(:authentication_error)
     end
-  end
-
-  def authorize(pin)
-    authenticate_pin(pin)
   end
 
   def proceed_action
@@ -107,8 +103,8 @@ class Atm
     throw(:authentication_error)
   end
 
-  def authenticate_pin(pin)
-    if current_card.account.validate_pin(pin)
+  def authenticate_pin(pin_digest)
+    if current_card.account.validate_pin(pin_digest)
       event_tracker.show("PIN correct\nAccess granted.")
     else
       current_card.lock
@@ -154,7 +150,7 @@ class Atm
     if amount <= 0
       event_tracker.run(ImpossibleSituationError)
       throw(:action_failure)
-    elsif amount < current_card.owner.cash
+    elsif amount > current_card.owner.cash
       event_tracker.run(NotEnoughCashInPocketError)
       throw(:action_failure)
     end
@@ -163,13 +159,13 @@ class Atm
   def remove_funds(amount)
     @cash -= amount
     current_card.owner.cash += amount
-    event_tracker.save("#{amount}$ taken. ATM now holds #{cash}$")
+    "#{amount}$ taken. ATM now holds #{cash}$"
   end
 
   def add_funds(amount)
     current_card.owner.cash -= amount
     @cash += amount
-    event_tracker.save("#{amount}$ added. ATM now holds #{cash}$")
+    "#{amount}$ added. ATM now holds #{cash}$"
   end
 
   def set_current_card(card)

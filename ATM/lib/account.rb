@@ -12,8 +12,8 @@ class Account
     @pin_hash = Digest::MD5.digest pin.to_s
   end
 
-  def validate_pin(pin)
-    Digest::MD5.digest(pin.to_s) == @pin_hash
+  def validate_pin(pin_digest)
+     pin_digest == @pin_hash
   end
 
   def show_balance
